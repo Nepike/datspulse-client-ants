@@ -1,3 +1,5 @@
+import argparse
+import os
 import threading
 import time
 
@@ -9,7 +11,6 @@ from matplotlib.patches import RegularPolygon, Patch, Circle
 from matplotlib.transforms import Affine2D
 import math
 
-import config
 import requests
 import tkinter as tk
 from tkinter import ttk, scrolledtext
@@ -20,7 +21,19 @@ import numpy as np
 
 # Конфигурация
 BASE_URL = 'https://games-test.datsteam.dev/api'
-HEADERS = {'accept': 'application/json', 'X-Auth-Token': config.TOKEN}
+
+try:
+    import config
+    HEADERS = {'accept': 'application/json', 'X-Auth-Token': config.TOKEN}
+except ImportError:
+    # без config.py остаётся только офлайн-режим на записанном ответе арены
+    HEADERS = {'accept': 'application/json'}
+
+# --offline: играть не по сети, а по снимку арены из fixtures/
+OFFLINE = False
+OFFLINE_ARENA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'fixtures', 'arena_turn19.json')
+
 INF = 10**10
 matplotlib.use('TkAgg')
 
@@ -271,6 +284,8 @@ class AntGameApp:
         self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def get_logs(self):
+        if OFFLINE:
+            return
         try:
             response = requests.get(f"{BASE_URL}/logs", headers=HEADERS)
             if response.status_code == 200:
@@ -284,6 +299,9 @@ class AntGameApp:
             self.log_text.insert(f"Ошибка журнала: {str(e)}")
 
     def register(self):
+        if OFFLINE:
+            self.update_info_text('Офлайн-режим: регистрация недоступна.')
+            return
         try:
             response = requests.post(f"{BASE_URL}/register", headers=HEADERS)
             if response.status_code == 200:
@@ -309,482 +327,11 @@ class AntGameApp:
             self.response_text.config(state=tk.DISABLED)
 
     def get_arena(self):
+        if OFFLINE:
+            with open(OFFLINE_ARENA, encoding='utf-8') as f:
+                self.game_data = json.load(f)
+            return
         try:
-            # Имитация ответа сервера
-            # dummy_response = """
-            #                 {
-            #   "ants": [
-            #     {
-            #       "q": 60,
-            #       "r": 120,
-            #       "type": 1,
-            #       "health": 180,
-            #       "id": "8f389069-1515-4138-94a0-91cebda3d64c",
-            #       "food": {
-            #         "type": 0,
-            #         "amount": 0
-            #       }
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 120,
-            #       "type": 2,
-            #       "health": 80,
-            #       "id": "407dd26c-4232-4816-9160-9c75e85dc4b5",
-            #       "food": {
-            #         "type": 0,
-            #         "amount": 0
-            #       }
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 120,
-            #       "type": 0,
-            #       "health": 130,
-            #       "id": "4f3234e1-0b04-4489-970d-f2d70c72255a",
-            #       "food": {
-            #         "type": 0,
-            #         "amount": 0
-            #       }
-            #     }
-            #   ],
-            #   "enemies": [],
-            #   "map": [
-            #     {
-            #       "q": 60,
-            #       "r": 124,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 124,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 117,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 123,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 63,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 116,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 1
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 124,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 123,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 117,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 124,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 63,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 56,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 123,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 123,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 117,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 63,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 116,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 124,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 56,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 4
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 1
-            #     },
-            #     {
-            #       "q": 56,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 64,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 63,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 117,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 63,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 117,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 1
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 117,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 116,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 119,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 116,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 120,
-            #       "cost": 1,
-            #       "type": 4
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 122,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 62,
-            #       "r": 116,
-            #       "cost": 1,
-            #       "type": 3
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 123,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 123,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 121,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 2
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 118,
-            #       "cost": 1,
-            #       "type": 2
-            #     }
-            #   ],
-            #   "food": [
-            #     {
-            #       "q": 62,
-            #       "r": 120,
-            #       "type": 1,
-            #       "amount": 1
-            #     },
-            #     {
-            #       "q": 63,
-            #       "r": 122,
-            #       "type": 2,
-            #       "amount": 13
-            #     },
-            #     {
-            #       "q": 58,
-            #       "r": 123,
-            #       "type": 2,
-            #       "amount": 7
-            #     },
-            #     {
-            #       "q": 61,
-            #       "r": 117,
-            #       "type": 1,
-            #       "amount": 15
-            #     },
-            #     {
-            #       "q": 57,
-            #       "r": 122,
-            #       "type": 1,
-            #       "amount": 12
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 120,
-            #       "type": 1,
-            #       "amount": 8
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 121,
-            #       "type": 2,
-            #       "amount": 10
-            #     }
-            #   ],
-            #   "turnNo": 19,
-            #   "nextTurnIn": 1.049,
-            #   "home": [
-            #     {
-            #       "q": 60,
-            #       "r": 120
-            #     },
-            #     {
-            #       "q": 60,
-            #       "r": 119
-            #     },
-            #     {
-            #       "q": 59,
-            #       "r": 119
-            #     }
-            #   ],
-            #   "score": 0,
-            #   "spot": {
-            #     "q": 60,
-            #     "r": 120
-            #   }
-            # }
-            #                 """
-            # self.game_data = json.loads(dummy_response)
             
             response = requests.get(f"{BASE_URL}/arena", headers=HEADERS)
             if response.status_code == 200:
@@ -1316,6 +863,10 @@ class AntGameApp:
             self.draw_paths()
 
     def send_commands(self):
+        if OFFLINE:
+            self.update_info_text('Офлайн-режим: ходы не отправляются.')
+            return
+
         moves = []
         for ant_id, path in self.planned_moves.items():
             # Пропустить начальную позицию
@@ -1446,6 +997,13 @@ class AntGameApp:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Клиент DatsPulse: карта арены, ручная прокладка маршрутов, отправка ходов')
+    parser.add_argument('--offline', action='store_true',
+                        help='работать на записанном снимке арены из fixtures/, '
+                             'без токена и без обращений к серверу')
+    OFFLINE = parser.parse_args().offline
+
     root = tk.Tk()
 
     app = AntGameApp(root)

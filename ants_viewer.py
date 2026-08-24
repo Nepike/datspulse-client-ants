@@ -1,3 +1,4 @@
+import argparse
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import requests
@@ -11,20 +12,32 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import RegularPolygon, Circle, Patch
 import numpy as np
 import datetime
+import json
+import os
 from matplotlib.offsetbox import AnchoredText
-import config  # Файл config.py с токеном
 
 # Конфигурация
 BASE_URL = 'https://games-test.datsteam.dev/api'
-HEADERS = {'accept': 'application/json', 'X-Auth-Token': config.TOKEN}
 
-# Цвета для типов гексов
+try:
+	import config  # файл config.py с токеном
+	HEADERS = {'accept': 'application/json', 'X-Auth-Token': config.TOKEN}
+except ImportError:
+	# без config.py остаётся только офлайн-режим на записанном ответе арены
+	HEADERS = {'accept': 'application/json'}
+
+# --offline: смотреть не живую арену, а снимок из fixtures/
+OFFLINE = False
+OFFLINE_ARENA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'fixtures', 'arena_turn19.json')
+
+# Цвета для типов гексов (коды как в ответе /arena)
 HEX_COLORS = {
-	0: '#F0F0F0',  # Пустой
-	1: '#D2B48C',  # Грязь
-	2: '#A9A9A9',  # Камень
-	3: '#32CD32',  # Кислота
-	4: '#FF4500',  # Муравейник
+	1: '#FF4500',  # Муравейник
+	2: '#F0F0F0',  # Пустой
+	3: '#D2B48C',  # Грязь
+	4: '#32CD32',  # Кислота
+	5: '#A9A9A9',  # Камень
 }
 
 # Цвета для типов муравьев
@@ -43,9 +56,9 @@ ENEMY_COLORS = {
 
 # Цвета для ресурсов
 FOOD_COLORS = {
-	0: '#FFD700',  # Нектар
-	1: '#FF6347',  # Падь
-	2: '#8B4513',  # Семена
+	1: '#EF323D',  # Яблоко
+	2: '#8B4513',  # Хлеб
+	3: '#FFD700',  # Нектар
 }
 
 # Типы муравьев
@@ -57,9 +70,9 @@ ANT_TYPES = {
 
 # Типы ресурсов
 FOOD_TYPES = {
-	0: "Нектар",
-	1: "Падь",
-	2: "Семена"
+	1: "Яблоко",
+	2: "Хлеб",
+	3: "Нектар"
 }
 
 
@@ -249,6 +262,14 @@ class HexMapApp:
 		"""Поток для обновления данных игры"""
 		while True:
 			try:
+				if OFFLINE:
+					with open(OFFLINE_ARENA, encoding='utf-8') as f:
+						self.game_data = json.load(f)
+					self.last_update = datetime.datetime.now().strftime("%H:%M:%S")
+					self.root.after(0, self.update_ui)
+					time.sleep(1.0)
+					continue
+
 				response = requests.get(f"{BASE_URL}/arena", headers=HEADERS)
 				if response.status_code == 200:
 					self.game_data = response.json()
@@ -320,7 +341,7 @@ class HexMapApp:
 			x, y = self.hex_to_cart(food['q'], food['r'])
 			food_patch = Circle(
 				(x, y), radius=self.hex_size / 3,
-				facecolor=FOOD_COLORS.get(food['type'], '#FFD700')
+				facecolor=FOOD_COLORS.get(food['type'], '#CCCCCC')
 			)
 			self.ax.add_patch(food_patch)
 			self.ax.text(x, y, str(food['amount']),
@@ -411,20 +432,20 @@ class HexMapApp:
 		"""Добавление легенды на карту"""
 		# Создаем кастомную легенду
 		legend_elements = [
-			Patch(facecolor=HEX_COLORS[0], edgecolor='black', label='Пустой'),
-			Patch(facecolor=HEX_COLORS[1], edgecolor='black', label='Грязь'),
-			Patch(facecolor=HEX_COLORS[2], edgecolor='black', label='Камень'),
-			Patch(facecolor=HEX_COLORS[3], edgecolor='black', label='Кислота'),
-			Patch(facecolor=HEX_COLORS[4], edgecolor='black', label='Муравейник'),
+			Patch(facecolor=HEX_COLORS[2], edgecolor='black', label='Пустой'),
+			Patch(facecolor=HEX_COLORS[3], edgecolor='black', label='Грязь'),
+			Patch(facecolor=HEX_COLORS[5], edgecolor='black', label='Камень'),
+			Patch(facecolor=HEX_COLORS[4], edgecolor='black', label='Кислота'),
+			Patch(facecolor=HEX_COLORS[1], edgecolor='black', label='Муравейник'),
 			Patch(facecolor=ANT_COLORS[0], edgecolor='black', label='Рабочий (свой)'),
 			Patch(facecolor=ANT_COLORS[1], edgecolor='black', label='Солдат (свой)'),
 			Patch(facecolor=ANT_COLORS[2], edgecolor='black', label='Разведчик (свой)'),
 			Patch(facecolor=ENEMY_COLORS[0], edgecolor='black', label='Рабочий (враг)'),
 			Patch(facecolor=ENEMY_COLORS[1], edgecolor='black', label='Солдат (враг)'),
 			Patch(facecolor=ENEMY_COLORS[2], edgecolor='black', label='Разведчик (враг)'),
-			Patch(facecolor=FOOD_COLORS[0], edgecolor='black', label='Нектар'),
-			Patch(facecolor=FOOD_COLORS[1], edgecolor='black', label='Падь'),
-			Patch(facecolor=FOOD_COLORS[2], edgecolor='black', label='Семена')
+			Patch(facecolor=FOOD_COLORS[1], edgecolor='black', label='Яблоко'),
+			Patch(facecolor=FOOD_COLORS[2], edgecolor='black', label='Хлеб'),
+			Patch(facecolor=FOOD_COLORS[3], edgecolor='black', label='Нектар')
 		]
 
 		# Размещаем легенду в правом верхнем углу
@@ -580,6 +601,10 @@ class HexMapApp:
 
 	def send_path(self):
 		"""Отправка пути движения"""
+		if OFFLINE:
+			messagebox.showinfo("Офлайн-режим", "Ходы не отправляются")
+			return
+
 		if not self.selected_ant or not self.path_points:
 			messagebox.showwarning("Ошибка", "Выберите муравья и задайте путь")
 			return
@@ -619,6 +644,10 @@ class HexMapApp:
 			self.response_text.config(state=tk.DISABLED)
 
 	def register(self):
+		if OFFLINE:
+			messagebox.showinfo("Офлайн-режим", "Регистрация недоступна")
+			return
+
 		"""Регистрация команды"""
 		try:
 			response = requests.post(f"{BASE_URL}/register", headers=HEADERS)
@@ -645,6 +674,9 @@ class HexMapApp:
 			self.response_text.config(state=tk.DISABLED)
 
 	def get_logs(self):
+		if OFFLINE:
+			return
+
 		"""Получение журнала событий"""
 		try:
 			response = requests.get(f"{BASE_URL}/logs", headers=HEADERS)
@@ -660,6 +692,13 @@ class HexMapApp:
 
 
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser(
+		description='Просмотрщик арены DatsPulse с зумом и панорамированием')
+	parser.add_argument('--offline', action='store_true',
+	                    help='показывать записанный снимок арены из fixtures/, '
+	                         'без токена и без обращений к серверу')
+	OFFLINE = parser.parse_args().offline
+
 	root = tk.Tk()
 
 	# Стилизация интерфейса
